@@ -1,7 +1,0 @@
-/home/vince/Scrivania/fdva/template/build/CMakeFiles/install/strip.dir
-/home/vince/Scrivania/fdva/template/build/CMakeFiles/install/local.dir
-/home/vince/Scrivania/fdva/template/build/CMakeFiles/edit_cache.dir
-/home/vince/Scrivania/fdva/template/build/CMakeFiles/install.dir
-/home/vince/Scrivania/fdva/template/build/CMakeFiles/list_install_components.dir
-/home/vince/Scrivania/fdva/template/build/CMakeFiles/rebuild_cache.dir
-/home/vince/Scrivania/fdva/template/build/CMakeFiles/template.dir
