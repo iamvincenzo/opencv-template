@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/vince/Scrivania/fdva/template/build",
+  "command": "/usr/bin/g++-10   -isystem /usr/local/include/opencv4   -std=c++11 -Wall -g   -std=c++11 -o CMakeFiles/template.dir/template.cpp.o -c /home/vince/Scrivania/fdva/template/template.cpp",
+  "file": "/home/vince/Scrivania/fdva/template/template.cpp"
+}
+]
