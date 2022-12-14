@@ -113,7 +113,6 @@ void luminance(const cv::Mat &src, cv::Mat &out, const u_char pattern)
 	{
 		for (int u = 0; u < out.cols; ++u)
 		{
-
 			if ((pattern == RGGB && (v % 2 == 0 && u % 2 == 0)) ||
 				(pattern == BGGR && (v % 2 != 0 && u % 2 != 0)) ||
 				(pattern == GRBG && (v % 2 == 0 && u % 2 != 0)) ||
@@ -3305,6 +3304,8 @@ int main(int argc, char **argv)
 			cv::namedWindow("lines", cv::WINDOW_NORMAL);
 			cv::imshow("lines", circles);
 		}*/
+
+		std::cout << "CIAO" << std::endl;
 
 		////////////////////////
 
