@@ -3305,8 +3305,6 @@ int main(int argc, char **argv)
 			cv::imshow("lines", circles);
 		}*/
 
-		std::cout << "CIAO" << std::endl;
-
 		////////////////////////
 
 		// wait for key or timeout
