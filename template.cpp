@@ -3192,7 +3192,7 @@ int main(int argc, char **argv)
 			cv::imshow("myHistogramEqualization", outHE);
 		}*/
 
-		// 05. Binary vision: connected components
+		/* // 05. Binary vision: connected components
 		{
 			// create kernel (a croce)
 			u_char dataKrnl[9] = {0, 255, 0, 255, 255, 255, 0, 255, 0};
@@ -3246,7 +3246,7 @@ int main(int argc, char **argv)
 
 			cv::namedWindow("connComp", cv::WINDOW_NORMAL);
 			cv::imshow("connComp", connComp);
-		}
+		}*/
 
 		/* // 06. Lines: Trasformata di Hough-linee
 		{
