@@ -3,6 +3,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include <opencv2/features2d.hpp>
+
 // std:
 #include <fstream>
 #include <iostream>
@@ -738,7 +740,7 @@ void gaussianKrnl(float sigma, int r, cv::Mat &krnl)
 }
 
 // Esercitazione 4a: canny edge detector
-void GaussianBlur(const cv::Mat &src, float sigma, int r, cv::Mat &out, int stride)
+void GaussianBlur(const cv::Mat &src, float sigma, int r, cv::Mat &out, int stride = 1)
 {
 	// vertical gaussian filter creation
 	cv::Mat gaussKrnl;
@@ -1331,6 +1333,109 @@ void myLoGFilter(const cv::Mat &src, cv::Mat &out, int stride = 1)
 	cv::convertScaleAbs(out, outDisplay);
 	cv::namedWindow("myLoGFilter", cv::WINDOW_NORMAL);
 	cv::imshow("myLoGFilter", outDisplay);
+	return;
+}
+
+// median pooling
+void medianPooling(const cv::Mat &src, const int krn_size, cv::Mat &out, int stride = 1)
+{
+	if (krn_size % 2 == 0)
+	{
+		std::cerr << "medianPooling() - ERROR: the kernel is not odd in size." << std::endl;
+		exit(1);
+	}
+
+	if (src.type() != CV_8UC1)
+	{
+		std::cerr << "medianPooling() - ERROR: the source image is not uint8." << std::endl;
+		exit(1);
+	}
+
+	int padH = (krn_size - 1) / 2;
+	int padW = (krn_size - 1) / 2;
+
+	cv::Mat padded;
+	addZeroPadding(src, padded, padH, padW);
+
+	out = cv::Mat((int)((src.rows + 2 * padH - krn_size) / stride) + 1, (int)((src.cols + 2 * padW - krn_size) / stride) + 1, CV_32SC1);
+
+	std::vector<int> values;
+
+	for (int m = 0; m < out.rows; ++m)
+	{
+		for (int n = 0; n < out.cols; ++n)
+		{
+			values.clear();
+
+			for (int k = 0; k < krn_size; ++k)
+			{
+				for (int l = 0; l < krn_size; ++l)
+				{
+					values.push_back(padded.at<u_char>((m * stride) + k, (n * stride) + l));
+				}
+			}
+
+			sort(values.begin(), values.end());
+
+			int index = values.size() / 2 - 1;
+
+			// out.data[(n + m * out.cols) * out.elemSize()] = w_sum;
+			out.at<int32_t>(m, n) = values[index];
+		}
+	}
+
+	return;
+}
+
+// max-min pooling
+void maxMinPooling(const cv::Mat &src, const int krn_size, cv::Mat &out, int stride = 1, const bool maxPooling = true)
+{
+	if (krn_size % 2 == 0)
+	{
+		std::cerr << "maxPooling() - ERROR: the kernel is not odd in size." << std::endl;
+		exit(1);
+	}
+
+	if (src.type() != CV_8UC1)
+	{
+		std::cerr << "maxPooling() - ERROR: the source image is not uint8." << std::endl;
+		exit(1);
+	}
+
+	int padH = (krn_size - 1) / 2;
+	int padW = (krn_size - 1) / 2;
+
+	cv::Mat padded;
+	addZeroPadding(src, padded, padH, padW);
+
+	out = cv::Mat((int)((src.rows + 2 * padH - krn_size) / stride) + 1, (int)((src.cols + 2 * padW - krn_size) / stride) + 1, CV_32SC1);
+
+	int min_value = INT_MAX, max_value = INT_MIN;
+
+	for (int m = 0; m < out.rows; ++m)
+	{
+		for (int n = 0; n < out.cols; ++n)
+		{
+			for (int k = 0; k < krn_size; ++k)
+			{
+				for (int l = 0; l < krn_size; ++l)
+				{
+					if (padded.at<u_char>((m * stride) + k, (n * stride) + l) < min_value)
+						min_value = padded.at<u_char>((m * stride) + k, (n * stride) + l);
+
+					if (padded.at<u_char>((m * stride) + k, (n * stride) + l) > max_value)
+						max_value = padded.at<u_char>((m * stride) + k, (n * stride) + l);
+				}
+			}
+
+			if (maxPooling)
+				out.at<int32_t>(m, n) = max_value;
+
+			else
+				out.at<int32_t>(m, n) = min_value;
+		}
+	}
+
 	return;
 }
 
@@ -2409,6 +2514,12 @@ void myHoughLines(const cv::Mat &image, cv::Mat &lines, const int min_theta, con
 				// convert to cartesian coordinates
 				myPolarToCartesian(r, t, start_point, end_point, acc.rows, image);
 
+				std::cout
+					<< ": " << start_point.x << ", " << start_point.y
+					<< std::endl
+					<< ": " << end_point.x << ", " << end_point.y
+					<< std::endl;
+
 				// draw a red line
 				cv::line(lines, start_point, end_point, cv::Scalar(0, 0, 255), 2, cv::LINE_4);
 			}
@@ -2511,7 +2622,192 @@ void myHoughCircles(const cv::Mat &image, cv::Mat &circles, const int threshold)
 // RANSAC ???
 
 /* 13. Features-extraction */
-// Harris-Corner-Detector ???
+
+// harris-corner-detection
+void mySobelKrnls(cv::Mat &v_sobel, cv::Mat &h_sobel)
+{
+	v_sobel = (cv::Mat_<float>(3, 3) << -1, 0, 1,
+			   -2, 0, 2,
+			   -1, 0, 1);
+
+	h_sobel = (cv::Mat_<float>(3, 3) << 1, 2, 1,
+			   0, 0, 0,
+			   -1, -2, -1);
+
+	return;
+}
+
+// harris-corner-detection
+void myHarrisCornerDetector(const cv::Mat &src, std::vector<cv::KeyPoint> &key_points, const float harris_th, const float alpha)
+{
+	if (src.type() != CV_8UC1)
+	{
+		std::cerr << "harrisCornerDetector() - ERROR: the image is not uint8." << std::endl;
+		exit(1);
+	}
+
+	// if(src.rows != src.cols){
+	//   std::cerr << "harrisCornerDetector() - ERROR: the image is not square in size (it should have the same numbers of rows and columns)." << std::endl;
+	//   exit(1);
+	//}
+
+	// if(alpha < 0.04 || alpha > 0.06){
+	//   std::cerr << "harrisCornerDetector() - ERROR: the passed alpha value was outside the interval [0.04, 0.06]." << std::endl;
+	//   exit(1);
+	// }
+
+	cv::Mat h_sobel, v_sobel;
+
+	mySobelKrnls(v_sobel, h_sobel);
+
+	cv::Mat Ix, Iy;
+	myfilter2D(src, v_sobel, Ix);
+	myfilter2D(src, h_sobel, Iy);
+
+	Ix.convertTo(Ix, CV_32F);
+	Iy.convertTo(Iy, CV_32F);
+
+	cv::Mat v_grad, h_grad;
+	cv::convertScaleAbs(Ix, v_grad);
+	cv::convertScaleAbs(Iy, h_grad);
+
+	// squares of derivatives
+	cv::Mat Ix_2 = cv::Mat(Ix.rows, Ix.cols, Ix.type()), Iy_2 = cv::Mat(Ix.rows, Ix.cols, Ix.type()), Ix_Iy = cv::Mat(Ix.rows, Ix.cols, Ix.type());
+
+	// Ix_2 = Ix * Ix;
+	// Iy_2 = Iy * Iy;
+	// Ix_Iy = Ix * Iy;
+
+	for (int r = 0; r < Ix.rows; ++r)
+	{
+		for (int c = 0; c < Ix.cols; ++c)
+		{
+			Ix_2.at<float>(r, c) = Ix.at<float>(r, c) * Ix.at<float>(r, c);
+			Iy_2.at<float>(r, c) = Iy.at<float>(r, c) * Iy.at<float>(r, c);
+			Ix_Iy.at<float>(r, c) = Ix.at<float>(r, c) * Iy.at<float>(r, c);
+		}
+	}
+
+	Ix_2.convertTo(Ix_2, CV_8UC1);
+	Iy_2.convertTo(Iy_2, CV_8UC1);
+	Ix_Iy.convertTo(Ix_Iy, CV_8UC1);
+
+	// openAndWait("Ix_2", Ix_2, false);
+	// openAndWait("Iy_2", Iy_2, false);
+	// openAndWait("Ix_Iy", Ix_Iy, false);
+
+	float sigma = 20;
+	int k_radius = 1;
+
+	cv::Mat g_Ix_2, g_Iy_2, g_Ix_Iy;
+	GaussianBlur(Ix_2, sigma, k_radius, g_Ix_2);
+	GaussianBlur(Iy_2, sigma, k_radius, g_Iy_2);
+	GaussianBlur(Ix_Iy, sigma, k_radius, g_Ix_Iy);
+
+	// cv::convertScaleAbs(g_Ix_2, g_Ix_2);
+	// cv::convertScaleAbs(g_Iy_2, g_Iy_2);
+	// cv::convertScaleAbs(g_Ix_Iy, g_Ix_Iy);
+
+	g_Ix_2.convertTo(g_Ix_2, CV_32F);
+	g_Iy_2.convertTo(g_Iy_2, CV_32F);
+	g_Ix_Iy.convertTo(g_Ix_Iy, CV_32F);
+
+	cv::Mat thetas(src.rows, src.cols, g_Ix_2.type(), cv::Scalar(0));
+
+	for (int r = 0; r < thetas.rows; ++r)
+	{
+		for (int c = 0; c < thetas.cols; ++c)
+		{
+			float g_Ix_2_val = g_Ix_2.at<float>(r, c);
+			float g_Iy_2_val = g_Iy_2.at<float>(r, c);
+			float g_Ix_Iy_val = g_Ix_Iy.at<float>(r, c);
+
+			float det = (g_Ix_2_val * g_Iy_2_val) - pow(g_Ix_Iy_val, 2);
+			float trace = (g_Ix_2_val + g_Iy_2_val);
+			thetas.at<float>(r, c) = det - alpha * pow(trace, 2);
+		}
+	}
+
+	//(simplified) non-maxima suppression
+
+	int ngb_size = 3;
+	double max;
+	float curr_theta;
+
+	for (int r = ngb_size / 2; r < thetas.rows - ngb_size / 2; ++r)
+	{
+		for (int c = ngb_size / 2; c < thetas.cols - ngb_size / 2; ++c)
+		{
+			curr_theta = thetas.at<float>(r, c);
+
+			if (curr_theta <= harris_th)
+			{
+				thetas.at<float>(r, c) = 0;
+			}
+
+			if (curr_theta > harris_th)
+			{
+				cv::Mat ngb(thetas, cv::Rect(c - ngb_size / 2, r - ngb_size / 2, ngb_size, ngb_size));
+
+				cv::minMaxIdx(ngb, NULL, &max, NULL, NULL);
+
+				// for(int i = 0; i < ngb.rows; ++i){
+				//   for(int j = 0; j < ngb.cols; ++j){
+				//     if(ngb.at<float>(r, c) > max){
+				//       max = ngb.at<float>(r, c);
+				//     }
+				//   }
+				// }
+
+				if (curr_theta < max)
+				{
+					thetas.at<float>(r, c) = 0;
+				}
+			}
+		}
+	}
+
+	// display response matrix
+	cv::Mat adjMap, falseColorsMap;
+	double min_r, max_r;
+
+	cv::minMaxLoc(thetas, &min_r, &max_r);
+	cv::convertScaleAbs(thetas, adjMap, 255 / (max_r - min_r));
+	cv::applyColorMap(adjMap, falseColorsMap, cv::COLORMAP_RAINBOW);
+
+	// openAndWait("Response", falseColorsMap, false);
+
+	// save the keypoints
+	for (int r = 0; r < thetas.rows; ++r)
+	{
+		for (int c = 0; c < thetas.cols; ++c)
+		{
+			if (thetas.at<float>(r, c) > 0)
+				key_points.push_back(cv::KeyPoint(c, r, 5));
+		}
+	}
+
+	// float max_r;
+
+	// calculateThetas(Ix, Iy, alpha, thetas, max_r);
+
+	// std::cout << "Max theta: " << max_r << std::endl;
+
+	// cv::Mat bin (src.rows, src.cols, src.type(), cv::Scalar(0));
+
+	// for(int r = 0; r < bin.rows; ++r){
+	//   for(int c = 0; c < bin.cols; ++c){
+	//     if(thetas.at<float>(r, c) > 0.05 * max_r)
+	//       bin.at<u_char>(r, c) = 255;
+	//   }
+	// }
+
+	// openAndWait("Bin", bin);
+
+	// findPeaks();
+
+	return;
+}
 
 /* 14. Features-matching */
 
@@ -3248,7 +3544,7 @@ int main(int argc, char **argv)
 			cv::imshow("connComp", connComp);
 		}*/
 
-		/* // 06. Lines: Trasformata di Hough-linee
+		/*// 06. Lines: Trasformata di Hough-linee
 		{
 			cv::Mat grey;
 			cv::cvtColor(image, grey, cv::COLOR_BGR2GRAY);
@@ -3257,7 +3553,7 @@ int main(int argc, char **argv)
 			cv::blur(grey, blurred, cv::Size(3, 3));
 
 			cv::Mat contours;
-			cv::Canny(blurred, contours, 50, 200, 3);
+			cv::Canny(blurred, contours, 50, 150, 3);
 
 			cv::Mat lines;
 			image.copyTo(lines);
@@ -3303,6 +3599,23 @@ int main(int argc, char **argv)
 			cv::namedWindow("lines", cv::WINDOW_NORMAL);
 			cv::imshow("lines", circles);
 		}*/
+
+		// 13. Harris-Corner-Detection
+		{
+			cv::Mat grey;
+			cv::cvtColor(image, grey, cv::COLOR_BGR2GRAY);
+
+			std::vector<cv::KeyPoint> key_points;
+			float alpha = 0.04f;
+
+			myHarrisCornerDetector(grey, key_points, 50000, alpha);
+			cv::Mat k_points;
+			cv::drawKeypoints(grey, key_points, k_points, cv::Scalar::all(-1), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+
+			// display image
+			cv::namedWindow("k_points", cv::WINDOW_NORMAL);
+			cv::imshow("k_points", k_points);
+		}
 
 		////////////////////////
 

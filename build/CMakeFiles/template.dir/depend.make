@@ -32,6 +32,10 @@ CMakeFiles/template.dir/template.cpp.o: /usr/local/include/opencv4/opencv2/core/
 CMakeFiles/template.dir/template.cpp.o: /usr/local/include/opencv4/opencv2/core/utils/tls.hpp
 CMakeFiles/template.dir/template.cpp.o: /usr/local/include/opencv4/opencv2/core/version.hpp
 CMakeFiles/template.dir/template.cpp.o: /usr/local/include/opencv4/opencv2/core/vsx_utils.hpp
+CMakeFiles/template.dir/template.cpp.o: /usr/local/include/opencv4/opencv2/features2d.hpp
+CMakeFiles/template.dir/template.cpp.o: /usr/local/include/opencv4/opencv2/flann/config.h
+CMakeFiles/template.dir/template.cpp.o: /usr/local/include/opencv4/opencv2/flann/defines.h
+CMakeFiles/template.dir/template.cpp.o: /usr/local/include/opencv4/opencv2/flann/miniflann.hpp
 CMakeFiles/template.dir/template.cpp.o: /usr/local/include/opencv4/opencv2/highgui.hpp
 CMakeFiles/template.dir/template.cpp.o: /usr/local/include/opencv4/opencv2/highgui/highgui.hpp
 CMakeFiles/template.dir/template.cpp.o: /usr/local/include/opencv4/opencv2/imgcodecs.hpp
