@@ -3600,7 +3600,7 @@ int main(int argc, char **argv)
 			cv::imshow("lines", circles);
 		}*/
 
-		// 13. Harris-Corner-Detection
+		/*// 13. Harris-Corner-Detection
 		{
 			cv::Mat grey;
 			cv::cvtColor(image, grey, cv::COLOR_BGR2GRAY);
@@ -3615,7 +3615,7 @@ int main(int argc, char **argv)
 			// display image
 			cv::namedWindow("k_points", cv::WINDOW_NORMAL);
 			cv::imshow("k_points", k_points);
-		}
+		}*/
 
 		////////////////////////
 
