@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/vince/Documenti/template-opencv/build",
+  "command": "/usr/bin/g++   -isystem /usr/local/include/opencv4   -std=c++11 -Wall -g   -std=c++11 -o CMakeFiles/template.dir/template.cpp.o -c /home/vince/Documenti/template-opencv/template.cpp",
+  "file": "/home/vince/Documenti/template-opencv/template.cpp"
+}
+]
