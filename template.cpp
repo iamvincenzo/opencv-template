@@ -2438,7 +2438,7 @@ void myPolarToCartesian(double rho, int theta, cv::Point &p1, cv::Point &p2, con
 }
 
 // Trasformata di Hough: linee
-void myHoughLines(const cv::Mat &image, cv::Mat &lines, const int min_theta, const int max_theta, const int threshold)
+void myHoughLines(const cv::Mat &image, cv::Mat &lines, const int minTheta, const int maxTheta, const int threshold)
 {
 	if (image.type() != CV_8UC1)
 	{
@@ -2446,28 +2446,28 @@ void myHoughLines(const cv::Mat &image, cv::Mat &lines, const int min_theta, con
 		exit(1);
 	}
 
-	if (min_theta < 0 || min_theta >= max_theta)
+	if (minTheta < 0 || minTheta >= maxTheta)
 	{
 		std::cerr << "houghLines() - ERROR: the minimum value of theta min_theta is out of the valid range [0, max_theta)." << std::endl;
 		exit(1);
 	}
 
-	if (max_theta <= min_theta || max_theta > 180)
+	if (maxTheta <= minTheta || maxTheta > 180)
 	{
 		std::cerr << "houghLines() - ERROR: the maximum value of theta max_theta is out of the valid range (min_theta, PI]." << std::endl;
 		exit(1);
 	}
 
-	int max;
+	int maxVal;
 
 	if (image.rows > image.cols)
-		max = image.rows;
+		maxVal = image.rows;
 	else
-		max = image.cols;
+		maxVal = image.cols;
 
-	int max_distance = pow(2, 0.5) * max / 2;
+	int max_distance = pow(2, 0.5) * maxVal / 2;
 
-	std::vector<int> acc_row(max_theta - min_theta + 1, 0);
+	std::vector<int> acc_row(maxTheta - minTheta + 1, 0);
 
 	std::vector<std::vector<int>> accumulator(2 * max_distance, acc_row);
 
@@ -2480,7 +2480,7 @@ void myHoughLines(const cv::Mat &image, cv::Mat &lines, const int min_theta, con
 			{
 				int rho;
 				// loop over all possible values of theta
-				for (int theta = min_theta; theta <= max_theta; ++theta)
+				for (int theta = minTheta; theta <= maxTheta; ++theta)
 				{
 					rho = (c - image.cols / 2) * cos(theta * CV_PI / 180) + (r - image.rows / 2) * sin(theta * CV_PI / 180); // compute the value of rho
 
@@ -2490,11 +2490,11 @@ void myHoughLines(const cv::Mat &image, cv::Mat &lines, const int min_theta, con
 		}
 	}
 
-	cv::Mat acc(2 * max_distance, max_theta - min_theta, CV_8UC1);
+	cv::Mat acc(2 * max_distance, maxTheta - minTheta, CV_8UC1);
 
 	for (int r = 0; r < 2 * max_distance; ++r)
 	{
-		for (int t = min_theta; t <= max_theta; ++t)
+		for (int t = minTheta; t <= maxTheta; ++t)
 		{
 			acc.at<u_char>(r, t) = accumulator[r][t];
 		}
@@ -2507,18 +2507,18 @@ void myHoughLines(const cv::Mat &image, cv::Mat &lines, const int min_theta, con
 
 	for (int r = 0; r < acc.rows; ++r)
 	{
-		for (int t = min_theta; t < acc.cols; ++t)
+		for (int t = minTheta; t < acc.cols; ++t)
 		{
 			if (accumulator[r][t] >= threshold)
 			{
 				// convert to cartesian coordinates
 				myPolarToCartesian(r, t, start_point, end_point, acc.rows, image);
 
-				std::cout
-					<< ": " << start_point.x << ", " << start_point.y
-					<< std::endl
-					<< ": " << end_point.x << ", " << end_point.y
-					<< std::endl;
+				// std::cout
+				// 	<< ": " << start_point.x << ", " << start_point.y
+				// 	<< std::endl
+				// 	<< ": " << end_point.x << ", " << end_point.y
+				// 	<< std::endl;
 
 				// draw a red line
 				cv::line(lines, start_point, end_point, cv::Scalar(0, 0, 255), 2, cv::LINE_4);
