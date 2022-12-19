@@ -934,84 +934,6 @@ void findOptTreshs(const cv::Mat &src, float &tlow, float &thigh)
 }
 
 // Esercitazione 4a: canny edge detector
-void findAdj(const cv::Mat &magn, cv::Mat &out, const int r, const int c, const float tlow)
-{
-	// Adjacent pixel to pixel (i,j):
-	// (i-1, j-1) - (i-1, j) - (i-1, j+1)
-	// (i, j-1)   - (i, j)   - (i, j+1)
-	// (i+1, j-1) - (i+1, j) - (i+1, j+1)
-
-	bool ignore = false;
-
-	for (int i = r - 1; i <= r + 1; ++i)
-	{
-		for (int j = c - 1; j <= c + 1; ++j)
-		{
-			if (i == r && j == c)
-			{
-				ignore = true;
-				continue;
-			}
-
-			if (magn.at<float>(i, j) >= tlow)
-			{
-				out.at<u_char>(i, j) = 255;
-			}
-		}
-
-		if (ignore)
-			continue;
-	}
-
-	return;
-}
-
-// Esercitazione 4a: canny edge detector
-int doubleTh(const cv::Mat &magn, cv::Mat &out, float t1, float t2)
-{
-	float tmpVal = 0.0;
-
-	out = cv::Mat(magn.rows, magn.cols, CV_8UC1, cv::Scalar(0));
-
-	// passata 1
-
-	// pixel di bordo scegliete voi la politica (ignorati --> ranges: [1, r-2] e [1, c-2])
-	for (int v = 1; v < out.rows - 1; ++v)
-	{
-		for (int u = 1; u < out.cols - 1; ++u)
-		{
-			tmpVal = magn.at<float>(v, u);
-
-			// Over T-high: keep edge
-			if (tmpVal >= t2)
-			{
-				out.at<u_char>(v, u) = 255;
-			}
-		}
-	}
-
-	// passata 2
-
-	// pixel di bordo scegliete voi la politica (ignorati --> ranges: [1, r-2] e [1, c-2])
-	for (int v = 1; v < out.rows - 1; ++v)
-	{
-		for (int u = 1; u < out.cols - 1; ++u)
-		{
-			if (out.at<u_char>(v, u) == 255)
-			{
-				findAdj(magn, out, v, u, t1);
-			}
-		}
-	}
-
-	// display image greyscale
-	cv::namedWindow("out hysteresis - doubleTh", cv::WINDOW_NORMAL);
-	cv::imshow("out hysteresis - doubleTh", out);
-
-	return 0;
-}
-
-// Esercitazione 4a: canny edge detector
 void findAdjRecursive(cv::Mat &out, const int r, const int c)
 {
 	// Adjacent pixel to pixel (i,j):
@@ -2339,11 +2261,6 @@ void findPeaks3x3(const cv::Mat &magn, const cv::Mat &orient, cv::Mat &out)
 	{
 		for (int u = 0; u < angles.cols; ++u)
 		{
-			// if (angles.at<float>(v, u) < 0)
-			// {
-			// 	angles.at<float>(v, u) += 180;
-			// }
-
 			// so that there aren't negative angles
 			// all angles in range 180 (CV_PI = 180° is the atan2 periodicity)
 			while (angles.at<float>(v, u) < 0)
@@ -2438,7 +2355,7 @@ void myPolarToCartesian(double rho, int theta, cv::Point &p1, cv::Point &p2, con
 }
 
 // Trasformata di Hough: linee
-void myHoughLines(const cv::Mat &image, cv::Mat &lines, const int minTheta, const int maxTheta, const int threshold)
+void myHoughTransfLines(const cv::Mat &image, cv::Mat &lines, const int minTheta, const int maxTheta, const int threshold)
 {
 	if (image.type() != CV_8UC1)
 	{
@@ -2475,16 +2392,13 @@ void myHoughLines(const cv::Mat &image, cv::Mat &lines, const int minTheta, cons
 	{
 		for (int c = 0; c < image.cols; ++c)
 		{
-			// check if the current pixel is an edge pixel
 			if (image.at<u_char>(r, c) > 0)
 			{
-				int rho;
-				// loop over all possible values of theta
 				for (int theta = minTheta; theta <= maxTheta; ++theta)
 				{
-					rho = (c - image.cols / 2) * cos(theta * CV_PI / 180) + (r - image.rows / 2) * sin(theta * CV_PI / 180); // compute the value of rho
+					int rho = (c - image.cols / 2) * cos(theta * CV_PI / 180) + (r - image.rows / 2) * sin(theta * CV_PI / 180);
 
-					++accumulator[rho + max_distance][theta]; // increase the (rho, theta) position in the accumulator
+					++accumulator[rho + max_distance][theta];
 				}
 			}
 		}
@@ -2511,17 +2425,15 @@ void myHoughLines(const cv::Mat &image, cv::Mat &lines, const int minTheta, cons
 		{
 			if (accumulator[r][t] >= threshold)
 			{
-				// convert to cartesian coordinates
 				myPolarToCartesian(r, t, start_point, end_point, acc.rows, image);
 
-				// std::cout
-				// 	<< ": " << start_point.x << ", " << start_point.y
-				// 	<< std::endl
-				// 	<< ": " << end_point.x << ", " << end_point.y
-				// 	<< std::endl;
-
-				// draw a red line
 				cv::line(lines, start_point, end_point, cv::Scalar(0, 0, 255), 2, cv::LINE_4);
+
+				std::cout
+					<< "Start: (" << start_point.x << ", " << start_point.y << "); "
+					<< "End: (" << end_point.x << ", " << end_point.y << ")"
+					<< std::endl
+					<< std::endl;
 			}
 		}
 	}
@@ -2529,7 +2441,7 @@ void myHoughLines(const cv::Mat &image, cv::Mat &lines, const int minTheta, cons
 	return;
 }
 
-// Trasformata di Hough: cerchi ???
+/* // Trasformata di Hough: cerchi ???
 void myHoughCircles(const cv::Mat &image, cv::Mat &circles, const int threshold)
 {
 	// non funzionante
@@ -2601,7 +2513,7 @@ void myHoughCircles(const cv::Mat &image, cv::Mat &circles, const int threshold)
 	}
 
 	return;
-}
+}*/
 
 /* 09. Single-view-reconstruction */
 // Esercitazione 4/5 ???
@@ -2613,7 +2525,6 @@ void myHoughCircles(const cv::Mat &image, cv::Mat &circles, const int threshold)
 /* 11. Stereo-match */
 // find-best-match: cross-corr ???
 // find-best-match: cross-corr-norm ???
-// find-best-match: SAD ???///
 // find-best-match: SAD-semi-incr ???
 // find-best-match: SAD-incr ???
 
@@ -2624,15 +2535,15 @@ void myHoughCircles(const cv::Mat &image, cv::Mat &circles, const int threshold)
 /* 13. Features-extraction */
 
 // harris-corner-detection
-void mySobelKrnls(cv::Mat &v_sobel, cv::Mat &h_sobel)
+void mySobelKrnls(cv::Mat &vSobel, cv::Mat &hSobel)
 {
-	v_sobel = (cv::Mat_<float>(3, 3) << -1, 0, 1,
-			   -2, 0, 2,
-			   -1, 0, 1);
+	vSobel = (cv::Mat_<float>(3, 3) << -1, 0, 1,
+			  -2, 0, 2,
+			  -1, 0, 1);
 
-	h_sobel = (cv::Mat_<float>(3, 3) << 1, 2, 1,
-			   0, 0, 0,
-			   -1, -2, -1);
+	hSobel = (cv::Mat_<float>(3, 3) << 1, 2, 1,
+			  0, 0, 0,
+			  -1, -2, -1);
 
 	return;
 }
@@ -2646,23 +2557,13 @@ void myHarrisCornerDetector(const cv::Mat &src, std::vector<cv::KeyPoint> &key_p
 		exit(1);
 	}
 
-	// if(src.rows != src.cols){
-	//   std::cerr << "harrisCornerDetector() - ERROR: the image is not square in size (it should have the same numbers of rows and columns)." << std::endl;
-	//   exit(1);
-	//}
+	cv::Mat hSobel, vSobel;
 
-	// if(alpha < 0.04 || alpha > 0.06){
-	//   std::cerr << "harrisCornerDetector() - ERROR: the passed alpha value was outside the interval [0.04, 0.06]." << std::endl;
-	//   exit(1);
-	// }
-
-	cv::Mat h_sobel, v_sobel;
-
-	mySobelKrnls(v_sobel, h_sobel);
+	mySobelKrnls(vSobel, hSobel);
 
 	cv::Mat Ix, Iy;
-	myfilter2D(src, v_sobel, Ix);
-	myfilter2D(src, h_sobel, Iy);
+	myfilter2D(src, vSobel, Ix);
+	myfilter2D(src, hSobel, Iy);
 
 	Ix.convertTo(Ix, CV_32F);
 	Iy.convertTo(Iy, CV_32F);
@@ -2671,12 +2572,7 @@ void myHarrisCornerDetector(const cv::Mat &src, std::vector<cv::KeyPoint> &key_p
 	cv::convertScaleAbs(Ix, v_grad);
 	cv::convertScaleAbs(Iy, h_grad);
 
-	// squares of derivatives
 	cv::Mat Ix_2 = cv::Mat(Ix.rows, Ix.cols, Ix.type()), Iy_2 = cv::Mat(Ix.rows, Ix.cols, Ix.type()), Ix_Iy = cv::Mat(Ix.rows, Ix.cols, Ix.type());
-
-	// Ix_2 = Ix * Ix;
-	// Iy_2 = Iy * Iy;
-	// Ix_Iy = Ix * Iy;
 
 	for (int r = 0; r < Ix.rows; ++r)
 	{
@@ -2692,21 +2588,13 @@ void myHarrisCornerDetector(const cv::Mat &src, std::vector<cv::KeyPoint> &key_p
 	Iy_2.convertTo(Iy_2, CV_8UC1);
 	Ix_Iy.convertTo(Ix_Iy, CV_8UC1);
 
-	// openAndWait("Ix_2", Ix_2, false);
-	// openAndWait("Iy_2", Iy_2, false);
-	// openAndWait("Ix_Iy", Ix_Iy, false);
-
 	float sigma = 20;
-	int k_radius = 1;
+	int kRadius = 1;
 
 	cv::Mat g_Ix_2, g_Iy_2, g_Ix_Iy;
-	GaussianBlur(Ix_2, sigma, k_radius, g_Ix_2);
-	GaussianBlur(Iy_2, sigma, k_radius, g_Iy_2);
-	GaussianBlur(Ix_Iy, sigma, k_radius, g_Ix_Iy);
-
-	// cv::convertScaleAbs(g_Ix_2, g_Ix_2);
-	// cv::convertScaleAbs(g_Iy_2, g_Iy_2);
-	// cv::convertScaleAbs(g_Ix_Iy, g_Ix_Iy);
+	GaussianBlur(Ix_2, sigma, kRadius, g_Ix_2);
+	GaussianBlur(Iy_2, sigma, kRadius, g_Iy_2);
+	GaussianBlur(Ix_Iy, sigma, kRadius, g_Ix_Iy);
 
 	g_Ix_2.convertTo(g_Ix_2, CV_32F);
 	g_Iy_2.convertTo(g_Iy_2, CV_32F);
@@ -2728,56 +2616,53 @@ void myHarrisCornerDetector(const cv::Mat &src, std::vector<cv::KeyPoint> &key_p
 		}
 	}
 
-	//(simplified) non-maxima suppression
+	// (simplified) non-maxima suppression
 
-	int ngb_size = 3;
-	double max;
-	float curr_theta;
+	int ngbSize = 3;
+	double valMax;
+	float currTheta;
 
-	for (int r = ngb_size / 2; r < thetas.rows - ngb_size / 2; ++r)
+	for (int r = ngbSize / 2; r < thetas.rows - ngbSize / 2; ++r)
 	{
-		for (int c = ngb_size / 2; c < thetas.cols - ngb_size / 2; ++c)
+		for (int c = ngbSize / 2; c < thetas.cols - ngbSize / 2; ++c)
 		{
-			curr_theta = thetas.at<float>(r, c);
+			currTheta = thetas.at<float>(r, c);
 
-			if (curr_theta <= harris_th)
-			{
+			if (currTheta <= harris_th)
 				thetas.at<float>(r, c) = 0;
-			}
 
-			if (curr_theta > harris_th)
+			if (currTheta > harris_th)
 			{
-				cv::Mat ngb(thetas, cv::Rect(c - ngb_size / 2, r - ngb_size / 2, ngb_size, ngb_size));
+				cv::Mat ngb(thetas, cv::Rect(c - ngbSize / 2, r - ngbSize / 2, ngbSize, ngbSize));
 
-				cv::minMaxIdx(ngb, NULL, &max, NULL, NULL);
+				cv::minMaxIdx(ngb, NULL, &valMax, NULL, NULL);
 
-				// for(int i = 0; i < ngb.rows; ++i){
-				//   for(int j = 0; j < ngb.cols; ++j){
-				//     if(ngb.at<float>(r, c) > max){
-				//       max = ngb.at<float>(r, c);
-				//     }
-				//   }
+				// for (int i = 0; i < ngb.rows; ++i)
+				// {
+				// 	for (int j = 0; j < ngb.cols; ++j)
+				// 	{
+				// 		if (ngb.at<float>(r, c) > valMax)
+				// 		{
+				// 			valMax = ngb.at<float>(r, c);
+				// 		}
+				// 	}
 				// }
 
-				if (curr_theta < max)
-				{
+				if (currTheta < valMax)
 					thetas.at<float>(r, c) = 0;
-				}
 			}
 		}
 	}
 
 	// display response matrix
 	cv::Mat adjMap, falseColorsMap;
-	double min_r, max_r;
+	double minR, maxR;
 
-	cv::minMaxLoc(thetas, &min_r, &max_r);
-	cv::convertScaleAbs(thetas, adjMap, 255 / (max_r - min_r));
+	cv::minMaxLoc(thetas, &minR, &maxR);
+	cv::convertScaleAbs(thetas, adjMap, 255 / (maxR - minR));
 	cv::applyColorMap(adjMap, falseColorsMap, cv::COLORMAP_RAINBOW);
 
-	// openAndWait("Response", falseColorsMap, false);
-
-	// save the keypoints
+	// save keypoints
 	for (int r = 0; r < thetas.rows; ++r)
 	{
 		for (int c = 0; c < thetas.cols; ++c)
@@ -2786,25 +2671,6 @@ void myHarrisCornerDetector(const cv::Mat &src, std::vector<cv::KeyPoint> &key_p
 				key_points.push_back(cv::KeyPoint(c, r, 5));
 		}
 	}
-
-	// float max_r;
-
-	// calculateThetas(Ix, Iy, alpha, thetas, max_r);
-
-	// std::cout << "Max theta: " << max_r << std::endl;
-
-	// cv::Mat bin (src.rows, src.cols, src.type(), cv::Scalar(0));
-
-	// for(int r = 0; r < bin.rows; ++r){
-	//   for(int c = 0; c < bin.cols; ++c){
-	//     if(thetas.at<float>(r, c) > 0.05 * max_r)
-	//       bin.at<u_char>(r, c) = 255;
-	//   }
-	// }
-
-	// openAndWait("Bin", bin);
-
-	// findPeaks();
 
 	return;
 }
@@ -3557,7 +3423,7 @@ int main(int argc, char **argv)
 
 			cv::Mat lines;
 			image.copyTo(lines);
-			myHoughLines(contours, lines, 0, 180, 250);
+			myHoughTransfLines(contours, lines, 0, 180, 250);
 
 			// display image
 			cv::namedWindow("image", cv::WINDOW_NORMAL);
@@ -3600,7 +3466,7 @@ int main(int argc, char **argv)
 			cv::imshow("lines", circles);
 		}*/
 
-		/*// 13. Harris-Corner-Detection
+		// 13. Harris-Corner-Detection
 		{
 			cv::Mat grey;
 			cv::cvtColor(image, grey, cv::COLOR_BGR2GRAY);
@@ -3608,14 +3474,16 @@ int main(int argc, char **argv)
 			std::vector<cv::KeyPoint> key_points;
 			float alpha = 0.04f;
 
-			myHarrisCornerDetector(grey, key_points, 50000, alpha);
+			int th = 50000;
+
+			myHarrisCornerDetector(grey, key_points, th, alpha);
 			cv::Mat k_points;
 			cv::drawKeypoints(grey, key_points, k_points, cv::Scalar::all(-1), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 
 			// display image
 			cv::namedWindow("k_points", cv::WINDOW_NORMAL);
 			cv::imshow("k_points", k_points);
-		}*/
+		}
 
 		////////////////////////
 
