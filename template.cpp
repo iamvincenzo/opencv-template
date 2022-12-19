@@ -2512,21 +2512,21 @@ void myHoughCircles(const cv::Mat &image, cv::Mat &circles, const int threshold)
 }*/
 
 /* 09. Single-view-reconstruction */
-	// Esercitazione 4/5 ???
-	// Stima della geometria da un'immagine ???
+// Esercitazione 4/5 ???
+// Stima della geometria da un'immagine ???
 
 /* 10. Epipolar-geometry */
-	// rettificazione dell'immagine stereo ???
+// rettificazione dell'immagine stereo ???
 
 /* 11. Stereo-match */
-	// find-best-match: cross-corr ???
-	// find-best-match: cross-corr-norm ???
-	// find-best-match: SAD-semi-incr ???
-	// find-best-match: SAD-incr ???
+// find-best-match: cross-corr ???
+// find-best-match: cross-corr-norm ???
+// find-best-match: SAD-semi-incr ???
+// find-best-match: SAD-incr ???
 
 /* 12. Model-fitting */
-	// LS-line fitting ???
-	// RANSAC ???
+// LS-line fitting ???
+// RANSAC ???
 
 /* 13. Features-extraction */
 
@@ -3778,7 +3778,7 @@ int main(int argc, char **argv)
 			cv::imshow("lines", circles);
 		}*/
 
-		/*// 13. Harris-Corner-Detection
+		// 13. Harris-Corner-Detection
 		{
 			cv::Mat grey;
 			cv::cvtColor(image, grey, cv::COLOR_BGR2GRAY);
@@ -3795,7 +3795,7 @@ int main(int argc, char **argv)
 			// display image
 			cv::namedWindow("k_points", cv::WINDOW_NORMAL);
 			cv::imshow("k_points", k_points);
-		}*/
+		}
 
 		////////////////////////
 
