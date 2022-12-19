@@ -1027,10 +1027,6 @@ void doubleThRecursive(const cv::Mat &magn, cv::Mat &out, float t1, float t2)
 		}
 	}
 
-	// display image greyscale
-	cv::namedWindow("out hysteresis - doubleThRecursive", cv::WINDOW_NORMAL);
-	cv::imshow("out hysteresis - doubleThRecursive", out);
-
 	return;
 }
 
@@ -2684,6 +2680,267 @@ void myHarrisCornerDetector(const cv::Mat &src, std::vector<cv::KeyPoint> &key_p
 
 // Canny
 
+void addPaddingProf(const cv::Mat image, cv::Mat &out, int vPadding, int hPadding)
+{
+	out = cv::Mat(image.rows + vPadding * 2, image.cols + hPadding * 2, image.type(), cv::Scalar(0));
+
+	for (int row = vPadding; row < out.rows - vPadding; ++row)
+	{
+		for (int col = hPadding; col < out.cols - hPadding; ++col)
+		{
+			for (int k = 0; k < out.channels(); ++k)
+			{
+				out.data[((row * out.cols + col) * out.elemSize() + k * out.elemSize1())] = image.data[(((row - vPadding) * image.cols + col - hPadding) * image.elemSize() + k * image.elemSize1())];
+			}
+		}
+	}
+
+#if DEBUG
+	std::cout << "Padded image " << out.rows << "x" << out.cols << std::endl;
+	cv::namedWindow("Padded", cv::WINDOW_NORMAL);
+	cv::imshow("Padded", out);
+	unsigned char key = cv::waitKey(0);
+#endif
+}
+
+void myfilter2DProf(const cv::Mat &src, const cv::Mat &krn, cv::Mat &out, int stridev, int strideh)
+{
+	if (!src.rows % 2 || !src.cols % 2)
+	{
+		std::cerr << "myfilter2D(): ERROR krn has not odd size!" << std::endl;
+		exit(1);
+	}
+
+	int outsizey = (src.rows + (krn.rows / 2) * 2 - krn.rows) / (float)stridev + 1;
+	int outsizex = (src.cols + (krn.cols / 2) * 2 - krn.cols) / (float)strideh + 1;
+	out = cv::Mat(outsizey, outsizex, CV_32SC1);
+	// std::cout << "Output image " << out.rows << "x" << out.cols << std::endl;
+
+	cv::Mat image;
+	addPaddingProf(src, image, krn.rows / 2, krn.cols / 2);
+
+	int xc = krn.cols / 2;
+	int yc = krn.rows / 2;
+
+	int *outbuffer = (int *)out.data;
+	float *kernel = (float *)krn.data;
+
+	for (int i = 0; i < out.rows; ++i)
+	{
+		for (int j = 0; j < out.cols; ++j)
+		{
+			int origy = i * stridev + yc;
+			int origx = j * strideh + xc;
+			float sum = 0;
+			for (int ki = -yc; ki <= yc; ++ki)
+			{
+				for (int kj = -xc; kj <= xc; ++kj)
+				{
+					sum += image.data[(origy + ki) * image.cols + (origx + kj)] * kernel[(ki + yc) * krn.cols + (kj + xc)];
+				}
+			}
+			outbuffer[i * out.cols + j] = sum;
+		}
+	}
+}
+
+void gaussianKrnlProf(float sigma, int r, cv::Mat &krnl)
+{
+	float kernelSum = 0;
+	krnl = cv::Mat(r * 2 + 1, 1, CV_32FC1);
+
+	int yc = krnl.rows / 2;
+
+	float sigma2 = pow(sigma, 2);
+
+	for (int i = 0; i <= yc; i++)
+	{
+		int y2 = pow(i - yc, 2);
+		float gaussValue = pow(M_E, -(y2) / (2 * sigma2));
+
+		kernelSum += gaussValue;
+
+		if (i != yc)
+		{
+			kernelSum += gaussValue;
+		}
+
+		((float *)krnl.data)[i] = gaussValue;
+		((float *)krnl.data)[krnl.rows - i - 1] = gaussValue;
+	}
+
+	// Normalize.
+	for (int i = 0; i < krnl.rows; i++)
+	{
+		((float *)krnl.data)[i] /= kernelSum;
+	}
+}
+
+#define SEPARABLE
+void GaussianBlurProf(const cv::Mat &src, float sigma, int r, cv::Mat &out, int stride)
+{
+	cv::Mat vg, hg;
+
+	gaussianKrnlProf(sigma, r, vg);
+
+#ifdef SEPARABLE
+	hg = vg.t();
+	std::cout << "DEBUG: Horizontal Gaussian Kernel:\n"
+			  << hg << "\nSum: " << cv::sum(hg)[0] << std::endl;
+	cv::Mat tmp;
+	myfilter2DProf(src, hg, tmp, 1, stride);
+	tmp.convertTo(tmp, CV_8UC1);
+	myfilter2DProf(tmp, vg, out, stride, 1);
+#else
+	myfilter2DProf(src, vg * vg.t(), out, stride);
+	std::cout << "DEBUG: Square Gaussian Kernel:\n"
+			  << vg * vg.t() << "\nSum: " << cv::sum(vg * vg.t())[0] << std::endl;
+#endif
+}
+
+void sobel3x3Prof(const cv::Mat &src, cv::Mat &magn, cv::Mat &ori)
+{
+	// SOBEL FILTERING
+	// void cv::Sobel(InputArray src, OutputArray dst, int ddepth, int dx, int dy, int ksize = 3, double scale = 1, double delta = 0, int borderType = BORDER_DEFAULT)
+	// sobel verticale come trasposto dell'orizzontale
+
+	cv::Mat ix, iy;
+	cv::Mat h_sobel = (cv::Mat_<float>(3, 3) << -1, 0, 1,
+					   -2, 0, 2,
+					   -1, 0, 1);
+
+	cv::Mat v_sobel = h_sobel.t();
+
+	myfilter2DProf(src, h_sobel, ix, 1, 1);
+	myfilter2DProf(src, v_sobel, iy, 1, 1);
+	ix.convertTo(ix, CV_32FC1);
+	iy.convertTo(iy, CV_32FC1);
+
+	// compute magnitude
+	cv::pow(ix.mul(ix) + iy.mul(iy), 0.5, magn);
+	// compute orientation
+	ori = cv::Mat(src.size(), CV_32FC1);
+	float *dest = (float *)ori.data;
+	float *srcx = (float *)ix.data;
+	float *srcy = (float *)iy.data;
+
+	for (int i = 0; i < ix.rows * ix.cols; ++i)
+		dest[i] = atan2f(srcy[i], srcx[i]) + 2 * CV_PI;
+}
+
+template <typename T>
+float bilinearProf(const cv::Mat &src, float r, float c)
+{
+	float yDist = r - int(r);
+	float xDist = c - int(c);
+
+	int value =
+		src.at<T>(r, c) * (1 - yDist) * (1 - xDist) +
+		src.at<T>(r + 1, c) * (yDist) * (1 - xDist) +
+		src.at<T>(r, c + 1) * (1 - yDist) * (xDist) +
+		src.at<T>(r + 1, c + 1) * yDist * xDist;
+
+	return value;
+}
+
+int findPeaksProf(const cv::Mat &magn, const cv::Mat &orient, cv::Mat &out)
+{
+	out = cv::Mat(magn.size(), magn.type(), cv::Scalar(0));
+
+	for (int r = 1; r < magn.rows - 1; r++)
+	{
+		for (int c = 1; c < magn.cols - 1; c++)
+		{
+
+			float theta = orient.at<float>(r, c);
+			float e1x = c + cos(theta);
+			float e1y = r + sin(theta);
+			float e2x = c - cos(theta);
+			float e2y = r - sin(theta);
+
+			float e1 = bilinearProf<float>(magn, e1y, e1x);
+			float e2 = bilinearProf<float>(magn, e2y, e2x);
+			float p = magn.at<float>(r, c);
+
+			if (p < e1 || p < e2)
+			{
+				p = 0;
+			}
+
+			out.at<float>(r, c) = p;
+		}
+	}
+
+	return 0;
+}
+
+int doubleThProf(const cv::Mat &magn, cv::Mat &out, float t1, float t2)
+{
+	cv::Mat first = cv::Mat(magn.size(), CV_8UC1);
+
+	float p; // little optimization (complier should cope with this)
+	if (t1 >= t2)
+		return 1;
+
+	int tm = t1 + (t2 - t1) / 2;
+
+	std::vector<cv::Point2i> strong;
+	std::vector<cv::Point2i> low;
+	for (int r = 0; r < magn.rows; r++)
+	{
+		for (int c = 0; c < magn.cols; c++)
+		{
+			if ((p = magn.at<float>(r, c)) >= t2)
+			{
+				first.at<uint8_t>(r, c) = 255;
+				strong.push_back(cv::Point2i(c, r)); // BEWARE at<>() and point2i() use a different coords order...
+			}
+			else if (p <= t1)
+			{
+				first.at<uint8_t>(r, c) = 0;
+			}
+			else
+			{
+				first.at<uint8_t>(r, c) = tm;
+				low.push_back(cv::Point2i(c, r));
+			}
+		}
+	}
+
+	first.copyTo(out);
+
+	// grow points > t2
+	while (!strong.empty())
+	{
+		cv::Point2i p = strong.back();
+		strong.pop_back();
+		// std::cout << p.y << " " << p.x << std::endl;
+		for (int ox = -1; ox <= 1; ++ox)
+			for (int oy = -1; oy <= 1; ++oy)
+			{
+				int nx = p.x + ox;
+				int ny = p.y + oy;
+				if (nx > 0 && nx < out.cols && ny > 0 && ny < out.rows && out.at<uint8_t>(ny, nx) == tm)
+				{
+					// std::cerr << ".";
+					out.at<uint8_t>(ny, nx) = 255;
+					strong.push_back(cv::Point2i(nx, ny));
+				}
+			}
+	}
+
+	// wipe out residual pixels < t2
+	while (!low.empty())
+	{
+		cv::Point2i p = low.back();
+		low.pop_back();
+		if (out.at<uint8_t>(p.y, p.x) < 255)
+			out.at<uint8_t>(p.y, p.x) = 0;
+	}
+
+	return 0;
+}
+
 // SAD
 
 unsigned char openAndWait(const char *windowName, cv::Mat &image, const bool destroyWindow = true)
@@ -3184,7 +3441,7 @@ int main(int argc, char **argv)
 			cv::imshow("binarized", binarized);
 		}*/
 
-		/* // Esercitazione 4a: canny edge detector vincenzo
+		/*// Esercitazione 4a: canny edge detector vincenzo
 		{
 			//////////////////////
 			// processing code here
@@ -3209,25 +3466,80 @@ int main(int argc, char **argv)
 			cv::Mat orient;
 			sobel3x3(smoothGrey, magn, orient);
 
-			// cv::Mat outNms1;
-			// findPeaks3x3(magn, orient, outNms1); --> alternativa con maschera 3x3 piuttosto che con interpolazione bilineare
 			cv::Mat outNms;
-			findPeaksBilInterpInterp(magn, orient, outNms);
+			// findPeaksBilInterpInterp(magn, orient, outNms);
+			findPeaks3x3(magn, orient, outNms);
 
-			float tlow;
-			float thigh;
-			// findOptTreshs(smoothGrey, tlow, thigh);
+			float tlow, thigh;
+			findOptTreshs(smoothGrey, tlow, thigh);
 
-			// cv::Mat outTH;
-			// doubleTh(outNms, outTH, tlow, thigh); // alternativa al metodo ricorsivo (non sicuro della correttezza)
+			cv::Mat outThr;
+			doubleThRecursive(outNms, outThr, tlow, thigh);
 
-			tlow = 50;
-			thigh = 100;
-
-			cv::Mat outTHR;
-			doubleThRecursive(outNms, outTHR, tlow, thigh);
+			// display image greyscale
+			cv::namedWindow("canny final result", cv::WINDOW_NORMAL);
+			cv::imshow("canny final result", outThr);
 
 			/////////////////////
+		}*/
+
+		/*// Esercitazione 4a: canny edge detector prof
+		{
+			int ksize = 3;
+			int stride = 1;
+			float sigma = 1.0f;
+
+			// display image
+			cv::namedWindow("original image", cv::WINDOW_NORMAL);
+			cv::imshow("original image", image);
+
+			// PROCESSING
+
+			cv::Mat grey;
+			cv::cvtColor(image, grey, cv::COLOR_BGR2GRAY);
+
+			cv::Mat blurred, blurdisplay;
+			GaussianBlurProf(grey, sigma, ksize / 2, blurred, stride);
+
+			blurred.convertTo(blurdisplay, CV_8UC1);
+
+			cv::namedWindow("Gaussian", cv::WINDOW_NORMAL);
+			cv::imshow("Gaussian", blurdisplay);
+
+			cv::Mat magnitude, orientation;
+			sobel3x3Prof(blurdisplay, magnitude, orientation);
+
+			cv::Mat magndisplay;
+			magnitude.convertTo(magndisplay, CV_8UC1);
+			cv::namedWindow("sobel magnitude", cv::WINDOW_NORMAL);
+			cv::imshow("sobel magnitude", magndisplay);
+
+			cv::Mat ordisplay;
+			orientation.copyTo(ordisplay);
+			float *orp = (float *)ordisplay.data;
+			for (int i = 0; i < ordisplay.cols * ordisplay.rows; ++i)
+				if (magndisplay.data[i] < 50)
+					orp[i] = 0;
+			cv::convertScaleAbs(ordisplay, ordisplay, 255 / (2 * CV_PI));
+			cv::Mat falseColorsMap;
+			cv::applyColorMap(ordisplay, falseColorsMap, cv::COLORMAP_JET);
+			cv::namedWindow("sobel orientation", cv::WINDOW_NORMAL);
+			cv::imshow("sobel orientation", falseColorsMap);
+
+			cv::Mat nms, nmsdisplay;
+			findPeaksProf(magnitude, orientation, nms);
+			nms.convertTo(nmsdisplay, CV_8UC1);
+			cv::namedWindow("edges after NMS", cv::WINDOW_NORMAL);
+			cv::imshow("edges after NMS", nmsdisplay);
+
+			cv::Mat canny;
+			if (doubleThProf(nms, canny, 50, 150))
+			{
+				std::cerr << "ERROR: t_low shoudl be lower than t_high" << std::endl;
+				exit(1);
+			}
+			cv::namedWindow("Canny final result", cv::WINDOW_NORMAL);
+			cv::imshow("Canny final result", canny);
 		}*/
 
 		////////////////////////
@@ -3466,7 +3778,7 @@ int main(int argc, char **argv)
 			cv::imshow("lines", circles);
 		}*/
 
-		// 13. Harris-Corner-Detection
+		/*// 13. Harris-Corner-Detection
 		{
 			cv::Mat grey;
 			cv::cvtColor(image, grey, cv::COLOR_BGR2GRAY);
@@ -3483,7 +3795,7 @@ int main(int argc, char **argv)
 			// display image
 			cv::namedWindow("k_points", cv::WINDOW_NORMAL);
 			cv::imshow("k_points", k_points);
-		}
+		}*/
 
 		////////////////////////
 
