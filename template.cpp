@@ -5,7 +5,7 @@
 
 #include <opencv2/features2d.hpp>
 
-// std:
+// std
 #include <fstream>
 #include <iostream>
 #include <string>
